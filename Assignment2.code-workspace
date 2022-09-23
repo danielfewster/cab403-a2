@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"types.h": "c",
+			"common.h": "c",
+			"stdbool.h": "c",
+			"stdint.h": "c",
+			"dict.h": "c"
+		}
+	}
+}
