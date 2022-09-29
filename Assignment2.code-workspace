@@ -10,7 +10,19 @@
 			"common.h": "c",
 			"stdbool.h": "c",
 			"stdint.h": "c",
-			"dict.h": "c"
+			"dict.h": "c",
+			"random": "c",
+			"array": "c",
+			"*.tcc": "c",
+			"functional": "c",
+			"istream": "c",
+			"new": "c",
+			"ostream": "c",
+			"sstream": "c",
+			"streambuf": "c",
+			"type_traits": "c",
+			"car_queue.h": "c",
+			"simulator.h": "c"
 		}
 	}
 }
