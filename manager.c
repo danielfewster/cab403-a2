@@ -13,6 +13,7 @@
 
 #include "dict.c"
 #include "common.h"
+#include "manager.h"
 
 bool get_shm_object(shm_t *shm) {
     if ((shm->fd = shm_open(SHM_KEY, O_RDWR, 0)) < 0) {
@@ -26,17 +27,9 @@ bool get_shm_object(shm_t *shm) {
     return true;
 }
 
-int main(void) {
-    shm_t shm;
-    if (!(get_shm_object(&shm))) {
-        printf("Failed to get shm object.\n");
-        return EXIT_FAILURE;
-    }
-
-    Dict plates_dict = DictCreate();
-
+bool load_plates(Dict *d) {
     FILE *file = fopen("plates.txt", "r");
-    if (file == NULL) return EXIT_FAILURE;
+    if (file == NULL) return false;
 
     int plates_amount = 100;
     int plate_chars = 6;
@@ -50,19 +43,58 @@ int main(void) {
 
     idx = 0;
     for (int i = 0; i < plates_amount; i++) {
-        char plate[plate_chars+1];
+        char plate[plate_chars];
         for (int j = 0; j < plate_chars; j++) {
             plate[j] = plates_buff[idx++];
         }
-        plate[plate_chars] = '\0';
-        DictInsert(plates_dict, plate, "0");
+        DictInsert(*d, plate, "0");
     }
 
-    // NOTE: why dict? making key value to what? or do we just care about bucket scaling?
-    const elt_t *v = DictSearch(plates_dict, "799BUO");
-    printf("%s\n", v->key);
-
     fclose(file);
+
+    return true;
+}
+
+void *monitor_lpr_sensors(void *data) {
+    thread_args_t *args;
+    args = (thread_args_t *)data;
+
+    while (1) {
+        for (int i = 0; i < ENTRANCES; i++) {
+            entrance_t *e = &args->cp_data->entrances[i];
+
+            pthread_mutex_lock(&e->lpr_sensor->mutex);
+            pthread_cond_wait(&e->lpr_sensor->cond_var, &e->lpr_sensor->mutex); 
+        
+            
+
+            pthread_mutex_unlock(&e->lpr_sensor->mutex);
+        }
+    }
+}
+
+int main(void) {
+    shm_t shm;
+    if (!(get_shm_object(&shm))) {
+        printf("Failed to get shm object.\n");
+        return EXIT_FAILURE;
+    }
+
+    Dict plates_dict = DictCreate();
+
+    if (!load_plates(&plates_dict)) {
+        return EXIT_FAILURE;
+    }
+
+    thread_args_t thread_args;
+    thread_args.cp_data = shm.data;
+
+    pthread_t monitor_lpr_t_id;
+
+    pthread_create(&monitor_lpr_t_id, NULL, monitor_lpr_sensors, &thread_args);
+
+    pthread_join(monitor_lpr_t_id, NULL);
+
     DictDestroy(plates_dict);
 
     return EXIT_SUCCESS;

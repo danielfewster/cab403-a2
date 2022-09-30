@@ -213,7 +213,7 @@ void *entering_cars(void *data) {
                 if (e->boom_gate->status == 'O') {
                     msleep(10);
 
-                    level_t *l = &args->cp_data->levels[level_to_park];
+                    level_t *l = &args->cp_data->levels[level_to_park-1];
 
                     front_car->level_parked = level_to_park;
 
