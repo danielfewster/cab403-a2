@@ -11,10 +11,18 @@ typedef struct car {
 #include "car_queue.h"
 #include "car_vector.h"
 
-typedef struct thread_args {
-    queue_t *entrance_queues;
-    cp_data_t *cp_data;
+typedef struct entering_car_args {
+    entrance_t *entrance;
+    queue_t *entrance_queue;
+    level_t *levels;
     car_vector_t *parked_cars;
-} thread_args_t;
+} entering_car_args_t;
+
+typedef struct leaving_car_args {
+    int level_idx;
+    level_t *levels;
+    exit_t *exits;
+    car_vector_t *parked_cars;
+} leaving_car_args_t;
 
 #endif
