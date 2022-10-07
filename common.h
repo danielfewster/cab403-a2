@@ -35,32 +35,32 @@ typedef struct lpr_sensor {
 } lpr_sensor_t;
 
 typedef struct entrance {
-    lpr_sensor_t *lpr_sensor;
-    boom_gate_t *boom_gate;
-    info_sign_t *info_sign;
+    lpr_sensor_t lpr_sensor;
+    boom_gate_t boom_gate;
+    info_sign_t info_sign;
 } entrance_t;
 
 typedef struct exit {
-    lpr_sensor_t *lpr_sensor;
-    boom_gate_t *boom_gate;
+    lpr_sensor_t lpr_sensor;
+    boom_gate_t boom_gate;
 } exit_t;
 
 typedef struct level {
-    lpr_sensor_t *lpr_sensor;
+    lpr_sensor_t lpr_sensor;
     signed short int temp_sensor;
     unsigned char alarm;
     char padding[5];
 } level_t;
 
-typedef struct cp_data {
+typedef struct shared_data {
     entrance_t *entrances;
     exit_t *exits;
     level_t *levels;
-} cp_data_t;
+} shared_data_t;
 
-typedef struct shm {
+typedef struct shared_memory {
     int fd;
-    cp_data_t *data;
-} shm_t;
+    shared_data_t *data;
+} shared_memory_t;
 
 #endif

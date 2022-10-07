@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"common.h": "c",
+			"car_queue.h": "c",
+			"type_traits": "c",
+			"simulator.h": "c"
+		}
+	}
+}

@@ -2,31 +2,32 @@
 #define MANAGER
 
 #include "common.h"
-#include "dict.h"
+#include "hashtable.h"
 
 typedef struct entrance_lpr_args {
     entrance_t *entrance;
-    Dict *plates_h;
+    htab_t *plates_h;
     int *cars_per_level;
 } entrance_lpr_args_t;
 
 typedef struct level_lpr_args {
     int level_idx;
     level_t *level;
-    Dict *plates_h;
+    htab_t *plates_h;
     int *cars_per_level;
 } level_lpr_args_t;
 
 typedef struct exit_lpr_args {
     exit_t *exit;
-    Dict *plates_billing;
-    Dict *plate_time_entered;
+    htab_t *plates_billing;
+    htab_t *plate_time_entered;
     int *cars_per_level;
 } exit_lpr_args_t;
 
 typedef struct status_display_args {
-    cp_data_t *cp_data;
-    Dict *plate_h;
+    shared_data_t *cp_data;
+    int *cars_per_level;
+    htab_t *plates_billing;
 } status_display_args_t;
 
 #endif

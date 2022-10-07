@@ -3,3 +3,4 @@ NOTES:
     - gcc -Wall -Wextra -Werror file.c -o file -lrt -lpthread
 - dict source: https://www.cs.yale.edu/homes/aspnes/pinewiki/C(2f)HashTables.html?highlight=%28CategoryAlgorithmNotes%29
 - queue source: https://www.geeksforgeeks.org/queue-set-1introduction-and-array-implementation/
+- new_queue source: https://lucasmagnum.medium.com/sidenotes-queue-abstract-data-type-and-data-structure-f634f3be9e85
