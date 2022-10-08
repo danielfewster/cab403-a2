@@ -92,13 +92,17 @@ void *entrance_lpr_sensor(void *data) {
             pthread_mutex_lock(&e->lpr_sensor.mutex); 
             pthread_cond_wait(&e->lpr_sensor.cond_var, &e->lpr_sensor.mutex);
 
+            printf("0\n");
+
             item_t *item = htab_find(args->plates_h, e->lpr_sensor.license_plate);
             if (item == NULL) {
+                printf("1\n");
                 pthread_mutex_lock(&e->info_sign.mutex);
                 e->info_sign.display = 'X';
                 pthread_cond_broadcast(&e->info_sign.cond_var);
                 pthread_mutex_unlock(&e->info_sign.mutex);
             } else {
+                printf("2\n");
                 bool found_level = false;
                 for (int i = 0; i < LEVELS; i++) {
                     if (args->cars_per_level[i] < LEVEL_CAPACITY) {
@@ -202,7 +206,7 @@ void *exit_lpr_sensor(void *data) {
         }
     }
 }
-
+/*
 void *status_display(void *data) {
     status_display_args_t *args;
     args = (status_display_args_t *)data;
@@ -248,7 +252,7 @@ void *status_display(void *data) {
         msleep(50);
     }
 }
-
+*/
 int main(void) {
     shared_memory_t shm;
     if (!(get_shm_object(&shm))) {
@@ -297,7 +301,7 @@ int main(void) {
     for (int i = 0; i < LEVELS; i++)
         cars_per_level[i] = 0;
 
-    
+    /*
     pthread_t status_display_th_id;
 
     status_display_args_t status_display_args;
@@ -306,8 +310,9 @@ int main(void) {
     status_display_args.plates_billing = &plates_billing;
 
     pthread_create(&status_display_th_id, NULL, status_display, &status_display_args);
-
+    */
     pthread_t entrance_lpr_th_ids[ENTRANCES];
+    entrance_lpr_args_t entrance_lpr_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_t th_id;
 
@@ -315,12 +320,14 @@ int main(void) {
         args.entrance = &shm.data->entrances[i];
         args.plates_h = &plates_time_entered;
         args.cars_per_level = (int *)&cars_per_level;
+        entrance_lpr_args[i] = args;
 
-        pthread_create(&th_id, NULL, entrance_lpr_sensor, &args);
+        pthread_create(&th_id, NULL, entrance_lpr_sensor, &entrance_lpr_args[i]);
         entrance_lpr_th_ids[i] = th_id;
     }
     
     pthread_t level_lpr_th_ids[LEVELS];
+    level_lpr_args_t level_lpr_args[LEVELS];
     for (int i = 0; i < LEVELS; i++) {
         pthread_t th_id;
 
@@ -328,12 +335,14 @@ int main(void) {
         args.level = &shm.data->levels[i];
         args.plates_h = &plates_in_levels;
         args.cars_in_level = &cars_per_level[i];
+        level_lpr_args[i] = args;
 
-        pthread_create(&th_id, NULL, level_lpr_sensor, &args);
+        pthread_create(&th_id, NULL, level_lpr_sensor, &level_lpr_args[i]);
         level_lpr_th_ids[i] = th_id;
     }
 
     pthread_t exit_lpr_th_ids[EXITS];
+    exit_lpr_args_t exit_lpr_args[EXITS];
     for (int i = 0; i < EXITS; i++) {
         pthread_t th_id;
 
@@ -341,18 +350,18 @@ int main(void) {
         args.exit = &shm.data->exits[i];
         args.plates_billing = &plates_billing;
         args.plates_time_entered = &plates_time_entered;
+        exit_lpr_args[i] = args;
 
-        pthread_create(&th_id, NULL, exit_lpr_sensor, &args);
+        pthread_create(&th_id, NULL, exit_lpr_sensor, &exit_lpr_args[i]);
         exit_lpr_th_ids[i] = th_id;
     }
 
-    pthread_join(status_display_th_id, NULL);
+    //pthread_join(status_display_th_id, NULL);
 
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_join(entrance_lpr_th_ids[i], NULL);
     }
 
-    
     for (int i = 0; i < LEVELS; i++) {
         pthread_join(level_lpr_th_ids[i], NULL);
     }

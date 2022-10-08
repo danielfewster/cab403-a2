@@ -159,11 +159,17 @@ void *entering_car(void *data) {
                 pthread_cond_broadcast(&e->lpr_sensor.cond_var);
                 pthread_mutex_unlock(&e->lpr_sensor.mutex);
 
+                printf("%s arrives waits for info sign...\n", 
+                    front_car->license_plate);
+
                 pthread_mutex_lock(&e->info_sign.mutex);
                 pthread_cond_wait(&e->info_sign.cond_var, &e->info_sign.mutex); 
 
                 if (isdigit(e->info_sign.display)) {
                     int level_to_park = e->info_sign.display - '0';
+
+                    printf("%s permitted to park at level %d\n", 
+                        front_car->license_plate, level_to_park);
 
                     pthread_mutex_lock(&e->boom_gate.mutex);
                     while (e->boom_gate.status != 'O')
@@ -188,6 +194,8 @@ void *entering_car(void *data) {
 
                     pthread_mutex_unlock(&e->boom_gate.mutex);
                 } else {
+                    printf("%s not permitted and leaves\n", 
+                        front_car->license_plate);
                     free(front_car);
                 }
 
@@ -315,6 +323,7 @@ int main(void) {
     pthread_create(&generate_cars_th_id, NULL, generate_cars, &entrance_queues);
 
     pthread_t sim_entering_cars[ENTRANCES];
+    entering_car_args_t entering_car_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_t th_id;
 
@@ -323,12 +332,14 @@ int main(void) {
         args.entrance_queue = &entrance_queues[i];
         args.levels = shm.data->levels;
         args.parked_cars = &parked_cars;
+        entering_car_args[i] = args;
 
-        pthread_create(&th_id, NULL, entering_car, &args);
+        pthread_create(&th_id, NULL, entering_car, &entering_car_args[i]);
         sim_entering_cars[i] = th_id;
     }
 
     pthread_t sim_leaving_cars[LEVELS];
+    leaving_car_args_t leaving_car_args[LEVELS];
     for (int i = 0; i < LEVELS; i++) {
         pthread_t th_id;
 
@@ -337,8 +348,9 @@ int main(void) {
         args.exits = shm.data->exits;
         args.levels = shm.data->levels;
         args.parked_cars = &parked_cars;
+        leaving_car_args[i] = args;
 
-        pthread_create(&th_id, NULL, leaving_cars, &args);
+        pthread_create(&th_id, NULL, leaving_cars, &leaving_car_args[i]);
         sim_leaving_cars[i] = th_id;
     }
 
@@ -379,6 +391,8 @@ int main(void) {
     for (int i = 0; i < ENTRANCES; i++) {
         free(&entrance_queues[i]);
     }
+
+    munmap(shm.data, SHM_SIZE);
 
     return EXIT_SUCCESS;
 }

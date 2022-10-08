@@ -2,7 +2,7 @@
 #define SIMULATOR
 
 typedef struct car {
-    char license_plate[6];
+    char license_plate[7];
     int level_parked;
     unsigned long int parking_exp;
 } car_t;
