@@ -19,6 +19,7 @@
 #include "p_queue.c"
 #include "car_vector.c"
 
+int entrance_queue_cap = 10;
 int plate_chars = 6;
 pthread_mutex_t rand_lock;
 
@@ -41,11 +42,7 @@ bool create_shm_object(shared_memory_t *shm) {
     return true;
 }
 
-void init_shared_mem(shared_memory_t *shm) {
-    shm->data->entrances = (entrance_t *)malloc(ENTRANCES*sizeof(entrance_t));
-    shm->data->exits = (exit_t *)malloc(EXITS*sizeof(exit_t));
-    shm->data->levels = (level_t *)malloc(LEVELS*sizeof(level_t));
-
+void init_shm_data(shared_memory_t *shm) {
     pthread_mutexattr_t mutex_attr;
     pthread_mutexattr_init(&mutex_attr);
     pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
@@ -55,64 +52,37 @@ void init_shared_mem(shared_memory_t *shm) {
     pthread_condattr_setpshared(&cond_attr, PTHREAD_PROCESS_SHARED);
 
     for (int i = 0; i < ENTRANCES; i++) {
-        lpr_sensor_t *lpr_sensor = (lpr_sensor_t *)malloc(sizeof(lpr_sensor_t));
-        pthread_mutex_init(&lpr_sensor->mutex, &mutex_attr);
-        pthread_cond_init(&lpr_sensor->cond_var, &cond_attr);
-        for (int i = 0; i < plate_chars; i++) {
-            lpr_sensor->license_plate[i] = 'X';
-        }
+        entrance_t *e = &shm->data->entrances[i];
 
-        boom_gate_t *boom_gate = (boom_gate_t *)malloc(sizeof(boom_gate_t));
-        pthread_mutex_init(&boom_gate->mutex, &mutex_attr);
-        pthread_cond_init(&boom_gate->cond_var, &cond_attr);
-        boom_gate->status = 'C';
+        pthread_mutex_init(&e->lpr_sensor.mutex, &mutex_attr);
+        pthread_cond_init(&e->lpr_sensor.cond_var, &cond_attr);
 
-        info_sign_t *info_sign = (info_sign_t *)malloc(sizeof(info_sign_t));
-        pthread_mutex_init(&info_sign->mutex, &mutex_attr);
-        pthread_cond_init(&info_sign->cond_var, &cond_attr);
-        info_sign->display = 'X';
+        pthread_mutex_init(&e->boom_gate.mutex, &mutex_attr);
+        pthread_cond_init(&e->boom_gate.cond_var, &cond_attr);
+        e->boom_gate.status = 'C';
 
-        entrance_t *entrance = (entrance_t *)malloc(sizeof(entrance_t));
-        entrance->lpr_sensor = *lpr_sensor;
-        entrance->boom_gate = *boom_gate;
-        entrance->info_sign = *info_sign;
+        pthread_mutex_init(&e->info_sign.mutex, &mutex_attr);
+        pthread_cond_init(&e->info_sign.cond_var, &cond_attr);
+    }
+    
+    for (int i = 0; i < LEVELS; i++) {
+        level_t *l = &shm->data->levels[i];
+        
+        pthread_mutex_init(&l->lpr_sensor.mutex, &mutex_attr);
+        pthread_cond_init(&l->lpr_sensor.cond_var, &cond_attr);
 
-        shm->data->entrances[i] = *entrance;
+        l->alarm = 0;
     }
 
     for (int i = 0; i < EXITS; i++) {
-        lpr_sensor_t *lpr_sensor = (lpr_sensor_t *)malloc(sizeof(lpr_sensor_t));
-        pthread_mutex_init(&lpr_sensor->mutex, &mutex_attr);
-        pthread_cond_init(&lpr_sensor->cond_var, &cond_attr);
-        for (int i = 0; i < plate_chars; i++) {
-            lpr_sensor->license_plate[i] = 'X';
-        }
+        exit_t *e = &shm->data->exits[i];
 
-        boom_gate_t *boom_gate = (boom_gate_t *)malloc(sizeof(boom_gate_t));
-        pthread_mutex_init(&boom_gate->mutex, &mutex_attr);
-        pthread_cond_init(&boom_gate->cond_var, &cond_attr);
-        boom_gate->status = 'C';
+        pthread_mutex_init(&e->lpr_sensor.mutex, &mutex_attr);
+        pthread_cond_init(&e->lpr_sensor.cond_var, &cond_attr);
 
-        exit_t *exit = (exit_t *)malloc(sizeof(exit_t));
-        exit->lpr_sensor = *lpr_sensor;
-        exit->boom_gate = *boom_gate;
-
-        shm->data->exits[i] = *exit;
-    }
-
-    for (int i = 0; i < LEVELS; i++) {
-        lpr_sensor_t *lpr_sensor = (lpr_sensor_t *)malloc(sizeof(lpr_sensor_t));
-        pthread_mutex_init(&lpr_sensor->mutex, &mutex_attr);
-        pthread_cond_init(&lpr_sensor->cond_var, &cond_attr);
-        for (int i = 0; i < plate_chars; i++) {
-            lpr_sensor->license_plate[i] = 'X';
-        }
-
-        level_t *level = (level_t *)malloc(sizeof(level_t));
-        level->lpr_sensor = *lpr_sensor;
-        level->alarm = 0;
-
-        shm->data->levels[i] = *level;
+        pthread_mutex_init(&e->boom_gate.mutex, &mutex_attr);
+        pthread_cond_init(&e->boom_gate.cond_var, &cond_attr);
+        e->boom_gate.status = 'C';
     }
 }
 
@@ -138,7 +108,7 @@ int msleep(long msec)
 }
 
 char *generate_plate() {
-    char *new_plate = (char *)malloc(plate_chars*sizeof(char));
+    char *new_plate = (char *)malloc((plate_chars+1)*sizeof(char));
     pthread_mutex_lock(&rand_lock);
     for (int i = 0; i < (plate_chars/2); i++) {
         new_plate[i] = (rand() % 10) + 48;
@@ -147,6 +117,7 @@ char *generate_plate() {
         new_plate[i] = (rand() % 26) + 65;
     }
     pthread_mutex_unlock(&rand_lock);
+    new_plate[plate_chars] = '\0';
     return new_plate;
 }
 
@@ -161,13 +132,12 @@ void *generate_cars(void *data) {
         pthread_mutex_unlock(&rand_lock);
         
         queue_t *q = &entrance_queues[rand_idx];
-        
-        car_t *new_car = (car_t *)malloc(sizeof(car_t));
-        char *new_plate = generate_plate();
-        for (int i = 0; i < plate_chars; i++) {
-            new_car->license_plate[i] = new_plate[i];
+        if (q->size < entrance_queue_cap) {
+            car_t *new_car = (car_t *)malloc(sizeof(car_t));
+            char *new_plate = generate_plate();
+            strcpy(new_car->license_plate, new_plate);
+            enqueue(q, (void *)new_car);
         }
-        enqueue(q, (void *)new_car);
 
         msleep(sleep_time);
     }
@@ -178,57 +148,51 @@ void *entering_car(void *data) {
     args = (entering_car_args_t *)data;
 
     while (1) {
-        if (!isEmpty(args->entrance_queue)) {
-            car_t *front_car = (car_t *)dequeue(args->entrance_queue);
-            msleep(2);
+        entrance_t *e = args->entrance;
+        if (e != NULL) {
+            if (!isEmpty(args->entrance_queue)) {
+                car_t *front_car = (car_t *)dequeue(args->entrance_queue);
+                msleep(2);
 
-            entrance_t *e = args->entrance;
+                pthread_mutex_lock(&e->lpr_sensor.mutex);
+                strncpy(e->lpr_sensor.license_plate, front_car->license_plate, plate_chars);
+                pthread_cond_broadcast(&e->lpr_sensor.cond_var);
+                pthread_mutex_unlock(&e->lpr_sensor.mutex);
 
-            printf("entrance: %p\n", e);
+                pthread_mutex_lock(&e->info_sign.mutex);
+                pthread_cond_wait(&e->info_sign.cond_var, &e->info_sign.mutex); 
 
-            pthread_mutex_lock(&e->lpr_sensor.mutex);
-            for (int i = 0; i < plate_chars; i++) {
-                e->lpr_sensor.license_plate[i] = front_car->license_plate[i];
-            }
-            pthread_cond_broadcast(&e->lpr_sensor.cond_var);
-            pthread_mutex_unlock(&e->lpr_sensor.mutex);
+                if (isdigit(e->info_sign.display)) {
+                    int level_to_park = e->info_sign.display - '0';
 
-            pthread_mutex_lock(&e->info_sign.mutex);
-            pthread_cond_wait(&e->info_sign.cond_var, &e->info_sign.mutex); 
+                    pthread_mutex_lock(&e->boom_gate.mutex);
+                    while (e->boom_gate.status != 'O')
+                        pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex); 
 
-            if (isdigit(e->info_sign.display)) {
-                int level_to_park = e->info_sign.display - '0';
+                    msleep(10);
 
-                pthread_mutex_lock(&e->boom_gate.mutex);
-                while (e->boom_gate.status != 'O')
-                    pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex); 
+                    level_t *l = &args->levels[level_to_park-1];
 
-                msleep(10);
+                    front_car->level_parked = level_to_park;
 
-                level_t *l = &args->levels[level_to_park-1];
+                    pthread_mutex_lock(&l->lpr_sensor.mutex);
+                    strncpy(l->lpr_sensor.license_plate, front_car->license_plate, plate_chars);
+                    pthread_cond_broadcast(&l->lpr_sensor.cond_var);
+                    pthread_mutex_unlock(&l->lpr_sensor.mutex);
 
-                front_car->level_parked = level_to_park;
+                    pthread_mutex_lock(&rand_lock);
+                    front_car->parking_exp = (time(NULL)*1000) + ((rand()%9900)+100);
+                    pthread_mutex_unlock(&rand_lock);
 
-                pthread_mutex_lock(&l->lpr_sensor.mutex);
-                for (int i = 0; i < plate_chars; i++) {
-                    l->lpr_sensor.license_plate[i] = front_car->license_plate[i];
+                    cv_push(args->parked_cars, *front_car);
+
+                    pthread_mutex_unlock(&e->boom_gate.mutex);
+                } else {
+                    free(front_car);
                 }
-                pthread_cond_broadcast(&l->lpr_sensor.cond_var);
-                pthread_mutex_unlock(&l->lpr_sensor.mutex);
 
-                pthread_mutex_lock(&rand_lock);
-                front_car->parking_exp = (time(NULL)*1000) + ((rand()%9900)+100);
-                pthread_mutex_unlock(&rand_lock);
-
-                cv_push(args->parked_cars, *front_car);
-
-                pthread_mutex_unlock(&e->boom_gate.mutex);
-            } else {
-                free(front_car->license_plate);
-                free(front_car);
+                pthread_mutex_unlock(&e->info_sign.mutex);
             }
-
-            pthread_mutex_unlock(&e->info_sign.mutex);
         }
     }
 }
@@ -248,9 +212,7 @@ void *leaving_cars(void *data) {
                     msleep(10);
 
                     pthread_mutex_lock(&l->lpr_sensor.mutex);
-                    for (int i = 0; i < plate_chars; i++) {
-                        l->lpr_sensor.license_plate[i] = curr_car->license_plate[i];
-                    }
+                    strncpy(l->lpr_sensor.license_plate, curr_car->license_plate, plate_chars);
                     pthread_cond_broadcast(&l->lpr_sensor.cond_var);
                     pthread_mutex_unlock(&l->lpr_sensor.mutex);
 
@@ -261,9 +223,7 @@ void *leaving_cars(void *data) {
                     exit_t *e = &args->exits[rand_idx];
 
                     pthread_mutex_lock(&e->lpr_sensor.mutex);
-                    for (int i = 0; i < plate_chars; i++) {
-                        e->lpr_sensor.license_plate[i] = curr_car->license_plate[i];
-                    }
+                    strncpy(e->lpr_sensor.license_plate, curr_car->license_plate, plate_chars);
                     pthread_cond_broadcast(&e->lpr_sensor.cond_var);
                     pthread_mutex_unlock(&e->lpr_sensor.mutex);
 
@@ -336,12 +296,12 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    init_shm_data(&shm);
+
     car_vector_t parked_cars;
     cv_init(&parked_cars);
 
     pthread_mutex_init(&rand_lock, NULL);
-
-    init_shared_mem(&shm);
 
     srand(0);
 
@@ -414,18 +374,11 @@ int main(void) {
         pthread_join(sim_exit_boom_gates[i], NULL);
     }
 
-    for (size_t i = 0; i < parked_cars.size; i++) {
-        free(&parked_cars.data[i].license_plate);
-        free(&parked_cars.data[i]);
-    }
-
     cv_destroy(&parked_cars);
 
     for (int i = 0; i < ENTRANCES; i++) {
         free(&entrance_queues[i]);
     }
-
-    // NOTE: should do munmap instead?
 
     return EXIT_SUCCESS;
 }

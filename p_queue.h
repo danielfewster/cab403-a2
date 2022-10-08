@@ -6,18 +6,10 @@ struct Node {
     struct Node *next;
 };
 
-struct Node* newNode(void *data){
-    struct Node *node = (struct Node*)malloc(sizeof(struct Node));
-
-    node->data = data;
-    node->next = NULL;
-
-    return node;
-}
-
 struct Queue {
     struct Node *head;
     struct Node *tail;
+    int size;
 };
 
 typedef struct Queue queue_t;

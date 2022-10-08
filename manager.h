@@ -11,17 +11,15 @@ typedef struct entrance_lpr_args {
 } entrance_lpr_args_t;
 
 typedef struct level_lpr_args {
-    int level_idx;
     level_t *level;
     htab_t *plates_h;
-    int *cars_per_level;
+    int *cars_in_level;
 } level_lpr_args_t;
 
 typedef struct exit_lpr_args {
     exit_t *exit;
     htab_t *plates_billing;
-    htab_t *plate_time_entered;
-    int *cars_per_level;
+    htab_t *plates_time_entered;
 } exit_lpr_args_t;
 
 typedef struct status_display_args {

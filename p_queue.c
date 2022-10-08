@@ -4,17 +4,30 @@
 
 #include "p_queue.h"
 
+struct Node* newNode(void *data){
+    struct Node *node = (struct Node*)malloc(sizeof(struct Node));
+
+    node->data = data;
+    node->next = NULL;
+
+    return node;
+}
+
 struct Queue* newQueue() {
     struct Queue *queue = (struct Queue*)malloc(sizeof(struct Queue));
 
     queue->head = NULL;
     queue->tail = NULL;
 
+    queue->size = 0;
+
     return queue;
 }
 
 void enqueue(struct Queue *queue, void *data){
     struct Node *node = newNode(data);
+
+    queue->size++;
 
     if (queue->head == NULL) {
         queue->head = node;
@@ -46,6 +59,7 @@ void *dequeue(struct Queue *queue) {
     }
 
     if (node != NULL) {
+        queue->size--;
         void *data = node->data;
         free(node);
         return data;

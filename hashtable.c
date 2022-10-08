@@ -19,13 +19,9 @@ void item_print(item_t *i)
 //       OR (all buckets are null pointers)
 bool htab_init(htab_t *h, size_t n)
 {
-    h->buckets = (item_t **)malloc(n * sizeof(item_t));
     h->size = n;
-    for (size_t i = 0; i < n; i++)
-    {
-        h->buckets[i] = NULL;
-    }
-    return true;
+    h->buckets = (item_t **)calloc(n, sizeof(item_t *));
+    return h->buckets != 0;
 }
 
 // The Bernstein hash function.
@@ -60,14 +56,13 @@ item_t *htab_bucket(htab_t *h, char *key)
 //       OR (strcmp(return->key, key) == 0)
 item_t *htab_find(htab_t *h, char *key)
 {
-    for (item_t *head = htab_bucket(h, key); head != NULL; head = head->next)
+    for (item_t *i = htab_bucket(h, key); i != NULL; i = i->next)
     {
-        if (strcmp(head->key, key) == 0)
-        {
-            return head;
+        if (strncmp(i->key, key, 6) == 0)
+        { // found the key
+            return i;
         }
     }
-    printf("Item not found\n");
     return NULL;
 }
 
@@ -77,15 +72,19 @@ item_t *htab_find(htab_t *h, char *key)
 //       OR (htab_find(h, key) != NULL)
 bool htab_add(htab_t *h, char *key, int value)
 {
-    item_t *head = htab_bucket(h, key);
+    // allocate new item
+    item_t *newhead = (item_t *)malloc(sizeof(item_t));
+    if (newhead == NULL)
+    {
+        return false;
+    }
+    newhead->key = key;
+    newhead->value = value;
 
-    item_t *new_head = (item_t *)malloc(sizeof(item_t));
-    new_head->key = key;
-    new_head->value = value;
-    new_head->next = head;
-
-    h->buckets[htab_index(h, key)] = new_head;
-
+    // hash key and place item in appropriate bucket
+    size_t bucket = htab_index(h, key);
+    newhead->next = h->buckets[bucket];
+    h->buckets[bucket] = newhead;
     return true;
 }
 
@@ -150,16 +149,22 @@ void htab_delete(htab_t *h, char *key)
 // post: all memory for hash table is released
 void htab_destroy(htab_t *h)
 {
-    for (size_t i = 0; i < h->size; i++)
+    // free linked lists
+    for (size_t i = 0; i < h->size; ++i)
     {
-        item_t *head = h->buckets[i];
-        item_t *temp = head;
-        while (temp != NULL)
+        item_t *bucket = h->buckets[i];
+        while (bucket != NULL)
         {
-            temp = temp->next;
-            free(head);
+            item_t *next = bucket->next;
+            free(bucket);
+            bucket = next;
         }
     }
+
+    // free buckets array
+    free(h->buckets);
+    h->buckets = NULL;
+    h->size = 0;
 }
 /*
 int main(int argc, char **argv)
