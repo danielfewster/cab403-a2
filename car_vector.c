@@ -29,7 +29,7 @@ void cv_ensure_capacity( car_vector_t* vec, size_t new_size ) {
     if (is_init(vec)) {
         if (new_size > vec->capacity) {
             vec->capacity = max(vec->capacity * DV_GROWTH_FACTOR, new_size);
-            vec->data = realloc(vec->data, vec->capacity * sizeof(double));
+            vec->data = realloc(vec->data, vec->capacity * sizeof(car_t));
         }
     }
 }

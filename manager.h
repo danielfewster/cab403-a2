@@ -13,7 +13,8 @@ typedef struct entrance_lpr_args {
 typedef struct level_lpr_args {
     level_t *level;
     htab_t *plates_h;
-    int *cars_in_level;
+    int *cars_per_level;
+    int level_idx;
 } level_lpr_args_t;
 
 typedef struct exit_lpr_args {

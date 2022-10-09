@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 
+#define RAND_SEED 0//2468
+
 // CAR PARK CONSTANTS
 #define ENTRANCES 5 
 #define EXITS 5
@@ -47,8 +49,8 @@ typedef struct exit {
 
 typedef struct level {
     lpr_sensor_t lpr_sensor;
-    signed short int temp_sensor;
-    unsigned char alarm;
+    volatile signed short int temp_sensor;
+    volatile unsigned char alarm;
     char padding[5];
 } level_t;
 
