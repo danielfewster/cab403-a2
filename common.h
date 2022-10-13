@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 
+#define PLATE_CHARS 6
 #define RAND_SEED 0//2468
 
 // CAR PARK CONSTANTS
