@@ -390,6 +390,22 @@ void *sim_exit_boom_gate(void *data) {
     }
 }
 
+void *level_temp_sensors(void *data) {
+    level_t *l;
+    l = (level_t *)data;
+
+    while (1) {
+        pthread_mutex_lock(&rand_lock);
+        int sleep_time = (rand() % 5) + 1;
+        int new_temp = (rand() % 20) + 20;
+        if ((rand() % 10) == 0) new_temp += rand() % 60;
+        pthread_mutex_unlock(&rand_lock);
+
+        l->temp_sensor = new_temp;
+        msleep(sleep_time);
+    }
+}
+
 int main(void) {
     shared_memory_t shm;
     if (!(create_shm_object(&shm))) {
@@ -463,6 +479,13 @@ int main(void) {
         pthread_create(&th_id, NULL, sim_exit_boom_gate, &shm.data->exits[i]);
         sim_exit_boom_gates[i] = th_id;
     }
+
+    pthread_t sim_temp_sensors[LEVELS];
+    for (int i = 0; i < LEVELS; i++) {
+        pthread_t th_id;
+        pthread_create(&th_id, NULL, level_temp_sensors, &shm.data->levels[i]);
+        sim_temp_sensors[i] = th_id;
+    }
     
     pthread_join(generate_cars_th_id, NULL);
 
@@ -480,6 +503,10 @@ int main(void) {
 
     for (int i = 0; i < EXITS; i++) {
         pthread_join(sim_exit_boom_gates[i], NULL);
+    }
+
+    for (int i = 0; i < LEVELS; i++) {
+        pthread_join(sim_temp_sensors[i], NULL);
     }
     
     cv_destroy(&parked_cars);
