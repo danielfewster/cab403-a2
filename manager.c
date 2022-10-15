@@ -98,11 +98,11 @@ int get_cars_in_level(htab_t *h, int level_idx) {
     return num_cars;
 }
 
-int is_car_entering(htab_t *h) {
+int is_car_entering(htab_t *h, int entrance_idx) {
     for (size_t i = 0; i < h->size; i++) {
         if (h->buckets[i] != NULL) {
             for (item_t *j = h->buckets[i]; j != NULL; j = j->next) {
-                if (j->info.loc_name == ENTRANCE) {
+                if (j->info.loc_name == ENTRANCE && j->info.loc_index == entrance_idx) {
                     return true;
                 }
             }
@@ -111,31 +111,17 @@ int is_car_entering(htab_t *h) {
     return false;
 }
 
-int is_car_leaving(htab_t *h) {
+int is_car_leaving(htab_t *h, int exit_idx) {
     for (size_t i = 0; i < h->size; i++) {
         if (h->buckets[i] != NULL) {
             for (item_t *j = h->buckets[i]; j != NULL; j = j->next) {
-                if (j->info.loc_name == EXIT) {
-                    j->info.leaving = true;
+                if (j->info.loc_name == EXIT && j->info.loc_index == exit_idx) {
                     return true;
                 }
             }
         }
     } 
     return false;
-}
-
-void reset_cars(htab_t *h) {
-    for (size_t i = 0; i < h->size; i++) {
-        if (h->buckets[i] != NULL) {
-            for (item_t *j = h->buckets[i]; j != NULL; j = j->next) {
-                if (j->info.leaving) {
-                    j->info.loc_name = NONE;
-                    j->info.leaving = false;
-                }
-            }
-        }
-    } 
 }
  
 void *entrance_lpr_sensor(void *data) {
@@ -294,8 +280,8 @@ void *status_display(void *data) {
 }
 
 void *auto_open_entrance_bg(void *data) {
-    open_entrance_args_t *args;
-    args = (open_entrance_args_t *)data;
+    entrance_args_t *args;
+    args = (entrance_args_t *)data;
 
     entrance_t *e = args->entrance;
 
@@ -304,10 +290,9 @@ void *auto_open_entrance_bg(void *data) {
         while (e->boom_gate.status != 'C')
             pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
 
-        if (is_car_entering(args->plates_info)) {
+        if (is_car_entering(args->plates_info, args->entrance_idx)) {
             e->boom_gate.status = 'R';
             pthread_cond_broadcast(&e->boom_gate.cond_var);
-            msleep(5);
         }
 
         pthread_mutex_unlock(&e->boom_gate.mutex);
@@ -325,10 +310,9 @@ void *auto_open_exit_bg(void *data) {
         while (e->boom_gate.status != 'C')
             pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
 
-        if (is_car_leaving(args->plates_info)) {
+        if (is_car_leaving(args->plates_info, args->exit_idx)) {
             e->boom_gate.status = 'R';
             pthread_cond_broadcast(&e->boom_gate.cond_var);
-            msleep(5);
         }
 
         pthread_mutex_unlock(&e->boom_gate.mutex);
@@ -336,8 +320,10 @@ void *auto_open_exit_bg(void *data) {
 }
 
 void *auto_close_entrance_bg(void *data) {
-    entrance_t *e;
-    e = (entrance_t *)data;
+    entrance_args_t *args;
+    args = (entrance_args_t *)data;
+
+    entrance_t *e = args->entrance;
 
     while (1) {
         pthread_mutex_lock(&e->boom_gate.mutex);
@@ -366,7 +352,6 @@ void *auto_close_exit_bg(void *data) {
         msleep(20);
         e->boom_gate.status = 'L';
         pthread_cond_broadcast(&e->boom_gate.cond_var);
-        reset_cars(args->plates_info);
 
         pthread_mutex_unlock(&e->boom_gate.mutex);
     }
@@ -454,13 +439,14 @@ int main(void) {
     }
     
     pthread_t open_entrance_bg[ENTRANCES];
-    open_entrance_args_t open_entrance_args[ENTRANCES];
+    entrance_args_t open_entrance_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_t th_id;
 
-        open_entrance_args_t args;
+        entrance_args_t args;
         args.entrance = &shm.data->entrances[i];
         args.plates_info = &plates_info;
+        args.entrance_idx = i;
         open_entrance_args[i] = args;
 
         pthread_create(&th_id, NULL, auto_open_entrance_bg, &open_entrance_args[i]);
@@ -475,6 +461,7 @@ int main(void) {
         exit_args_t args;
         args.exit = &shm.data->exits[i];
         args.plates_info = &plates_info;
+        args.exit_idx = i;
         open_exit_args[i] = args;
 
         pthread_create(&th_id, NULL, auto_open_exit_bg, &open_exit_args[i]);
@@ -482,9 +469,17 @@ int main(void) {
     }
     
     pthread_t close_entrance_bg[ENTRANCES];
+    entrance_args_t close_entrance_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_t th_id;
-        pthread_create(&th_id, NULL, auto_close_entrance_bg, &shm.data->entrances[i]);
+
+        entrance_args_t args;
+        args.entrance = &shm.data->entrances[i];
+        args.plates_info = &plates_info;
+        args.entrance_idx = i;
+        close_entrance_args[i] = args;
+
+        pthread_create(&th_id, NULL, auto_close_entrance_bg, &close_entrance_args[i]);
         close_entrance_bg[i] = th_id;
     }
 
@@ -496,6 +491,7 @@ int main(void) {
         exit_args_t args;
         args.exit = &shm.data->exits[i];
         args.plates_info = &plates_info;
+        args.exit_idx = i;
         close_exit_args[i] = args;
 
         pthread_create(&th_id, NULL, auto_close_exit_bg, &close_exit_args[i]);
