@@ -275,8 +275,8 @@ void *status_display(void *data) {
         for (int i = 0; i < LEVELS; i++) {
             level_t *l = &args->cp_data->levels[i];
             printf("Level #%d | ", i);
-            printf("Capacity: %d/%d | ", get_cars_in_level(args->plates_info, i), 
-                LEVEL_CAPACITY);
+            printf("Capacity: %d/%d | ", 
+                get_cars_in_level(args->plates_info, i), LEVEL_CAPACITY);
             printf("LPR: %s\n", l->lpr_sensor.license_plate);
         }
         printf("\n");
@@ -287,7 +287,8 @@ void *status_display(void *data) {
             printf("LPR: %s\n", e->lpr_sensor.license_plate);
         }
         printf("\n");
-        printf("Total Billing Revenue: $%.2f\n", (double)*args->total_revenue/100);
+        printf("Total Billing Revenue: $%.2f\n", 
+            (double)*args->total_revenue/100);
         msleep(50);
     }
 }
