@@ -11,6 +11,11 @@ typedef struct car {
 #include "p_queue.h"
 #include "car_vector.h"
 
+typedef struct generate_car_args {
+    queue_t *entrance_queues;
+    car_vector_t *cv;
+} generate_car_args_t;
+
 typedef struct entering_car_args {
     entrance_t *entrance;
     queue_t *entrance_queue;
