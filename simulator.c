@@ -233,11 +233,10 @@ void *entering_car(void *data) {
             pthread_cond_broadcast(&e->lpr_sensor.cond_var);
             pthread_mutex_unlock(&e->lpr_sensor.mutex);
 
-            printf("%s arrives and waits for info sign.\n", 
-                front_car->license_plate);
+            printf("%s arrives and waits for info sign.\n", front_car->license_plate);
 
             pthread_mutex_lock(&e->info_sign.mutex);
-            while(e->info_sign.display == '*')
+            while (e->info_sign.display == '*')
                 pthread_cond_wait(&e->info_sign.cond_var, &e->info_sign.mutex); 
 
             if (isdigit(e->info_sign.display)) {
@@ -249,7 +248,7 @@ void *entering_car(void *data) {
 
                 pthread_mutex_lock(&e->boom_gate.mutex);
                 while (e->boom_gate.status != 'O')
-                    pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex); 
+                    pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
                 pthread_mutex_unlock(&e->boom_gate.mutex);
 
                 msleep(10);
@@ -279,8 +278,7 @@ void *entering_car(void *data) {
             }
 
             e->info_sign.display = '*';
-            pthread_mutex_unlock(&e->info_sign.mutex);
-            
+            pthread_mutex_unlock(&e->info_sign.mutex);   
         }
     }
 }
@@ -326,7 +324,7 @@ void *leaving_cars(void *data) {
 
                         pthread_mutex_lock(&e->boom_gate.mutex);
                         while (e->boom_gate.status != 'O')
-                            pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex); 
+                            pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
                         pthread_mutex_unlock(&e->boom_gate.mutex);
 
                         printf("%s left at exit %d.\n", curr_car->license_plate, rand_idx);
@@ -479,7 +477,7 @@ int main(void) {
         pthread_create(&th_id, NULL, sim_exit_boom_gate, &shm.data->exits[i]);
         sim_exit_boom_gates[i] = th_id;
     }
-
+    
     pthread_t sim_temp_sensors[LEVELS];
     for (int i = 0; i < LEVELS; i++) {
         pthread_t th_id;
@@ -504,7 +502,7 @@ int main(void) {
     for (int i = 0; i < EXITS; i++) {
         pthread_join(sim_exit_boom_gates[i], NULL);
     }
-
+    
     for (int i = 0; i < LEVELS; i++) {
         pthread_join(sim_temp_sensors[i], NULL);
     }

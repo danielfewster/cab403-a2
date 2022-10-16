@@ -97,7 +97,7 @@ int get_cars_in_level(htab_t *h, int level_idx) {
     } 
     return num_cars;
 }
-
+ 
 int is_car_entering(htab_t *h, int entrance_idx) {
     for (size_t i = 0; i < h->size; i++) {
         if (h->buckets[i] != NULL) {
@@ -123,7 +123,7 @@ int is_car_leaving(htab_t *h, int exit_idx) {
     } 
     return false;
 }
- 
+
 void *entrance_lpr_sensor(void *data) {
     entrance_lpr_args_t *args;
     args = (entrance_lpr_args_t *)data;
@@ -147,11 +147,6 @@ void *entrance_lpr_sensor(void *data) {
             bool found_level = false;
             for (int i = 0; i < LEVELS; i++) {
                 if (get_cars_in_level(args->plates_info, i) < LEVEL_CAPACITY) {
-                    pthread_mutex_lock(&e->info_sign.mutex);
-                    e->info_sign.display = i + 49;
-                    pthread_cond_broadcast(&e->info_sign.cond_var);
-                    pthread_mutex_unlock(&e->info_sign.mutex);
-
                     struct timespec ts;
                     clock_gettime(CLOCK_REALTIME, &ts);
                     item->info.last_time_entered = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
@@ -159,12 +154,26 @@ void *entrance_lpr_sensor(void *data) {
                     item->info.loc_index = args->entrance_idx;
                     item->info.loc_name = ENTRANCE;
 
+                    pthread_mutex_lock(&e->info_sign.mutex);
+                    e->info_sign.display = i + 49;
+                    pthread_cond_broadcast(&e->info_sign.cond_var);
+                    pthread_mutex_unlock(&e->info_sign.mutex);
+
                     found_level = true;
                     break;
                 }
             }
 
-            if (!found_level) {
+            if (found_level) {
+                pthread_mutex_lock(&e->boom_gate.mutex);
+                while (!(e->boom_gate.status == 'C' || e->boom_gate.status == 'O'))
+                    pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
+                if (e->boom_gate.status == 'C') {
+                    e->boom_gate.status = 'R';
+                    pthread_cond_broadcast(&e->boom_gate.cond_var);
+                }
+                pthread_mutex_unlock(&e->boom_gate.mutex);
+            } else {
                 pthread_mutex_lock(&e->info_sign.mutex);
                 e->info_sign.display = 'F';
                 pthread_cond_broadcast(&e->info_sign.cond_var);
@@ -218,6 +227,15 @@ void *exit_lpr_sensor(void *data) {
         pthread_mutex_lock(&e->lpr_sensor.mutex);
         while (strcmp(e->lpr_sensor.license_plate, last_plate) == 0)
             pthread_cond_wait(&e->lpr_sensor.cond_var, &e->lpr_sensor.mutex);
+
+        pthread_mutex_lock(&e->boom_gate.mutex);
+        while (!(e->boom_gate.status == 'C' || e->boom_gate.status == 'O'))
+            pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
+        if (e->boom_gate.status == 'C') {
+            e->boom_gate.status = 'R';
+            pthread_cond_broadcast(&e->boom_gate.cond_var);
+        }
+        pthread_mutex_unlock(&e->boom_gate.mutex);
 
         item_t *item = htab_find(args->plates_info, e->lpr_sensor.license_plate);
         if (item != NULL) {
@@ -279,7 +297,7 @@ void *status_display(void *data) {
         msleep(50);
     }
 }
-
+/*
 void *auto_open_entrance_bg(void *data) {
     entrance_args_t *args;
     args = (entrance_args_t *)data;
@@ -319,7 +337,7 @@ void *auto_open_exit_bg(void *data) {
         pthread_mutex_unlock(&e->boom_gate.mutex);
     }
 }
-
+*/
 void *auto_close_entrance_bg(void *data) {
     entrance_args_t *args;
     args = (entrance_args_t *)data;
@@ -330,11 +348,13 @@ void *auto_close_entrance_bg(void *data) {
         pthread_mutex_lock(&e->boom_gate.mutex);
         while (e->boom_gate.status != 'O')
             pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
+        pthread_mutex_unlock(&e->boom_gate.mutex);
 
         msleep(20);
+
+        pthread_mutex_lock(&e->boom_gate.mutex);
         e->boom_gate.status = 'L';
         pthread_cond_broadcast(&e->boom_gate.cond_var); 
-
         pthread_mutex_unlock(&e->boom_gate.mutex);
     }
 }
@@ -349,11 +369,13 @@ void *auto_close_exit_bg(void *data) {
         pthread_mutex_lock(&e->boom_gate.mutex);
         while (e->boom_gate.status != 'O')
             pthread_cond_wait(&e->boom_gate.cond_var, &e->boom_gate.mutex);
+        pthread_mutex_unlock(&e->boom_gate.mutex);
 
         msleep(20);
+
+        pthread_mutex_lock(&e->boom_gate.mutex);
         e->boom_gate.status = 'L';
         pthread_cond_broadcast(&e->boom_gate.cond_var);
-
         pthread_mutex_unlock(&e->boom_gate.mutex);
     }
 }
@@ -438,7 +460,7 @@ int main(void) {
         pthread_create(&th_id, NULL, exit_lpr_sensor, &exit_lpr_args[i]);
         exit_lpr_th_ids[i] = th_id;
     }
-    
+    /*
     pthread_t open_entrance_bg[ENTRANCES];
     entrance_args_t open_entrance_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
@@ -468,7 +490,7 @@ int main(void) {
         pthread_create(&th_id, NULL, auto_open_exit_bg, &open_exit_args[i]);
         open_exit_bg[i] = th_id;
     }
-    
+    */
     pthread_t close_entrance_bg[ENTRANCES];
     entrance_args_t close_entrance_args[ENTRANCES];
     for (int i = 0; i < ENTRANCES; i++) {
@@ -512,7 +534,7 @@ int main(void) {
     for (int i = 0; i < EXITS; i++) {
         pthread_join(exit_lpr_th_ids[i], NULL);
     }
-    
+    /*
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_join(open_entrance_bg[i], NULL);
     }
@@ -520,7 +542,7 @@ int main(void) {
     for (int i = 0; i < EXITS; i++) {
         pthread_join(open_exit_bg[i], NULL);
     }
-    
+    */
     for (int i = 0; i < ENTRANCES; i++) {
         pthread_join(close_entrance_bg[i], NULL);
     }
@@ -528,7 +550,7 @@ int main(void) {
     for (int i = 0; i < EXITS; i++) {
         pthread_join(close_exit_bg[i], NULL);
     }
-
+    
     htab_destroy(&plates_info);
 
     return EXIT_SUCCESS;
