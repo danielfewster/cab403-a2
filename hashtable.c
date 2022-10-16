@@ -85,7 +85,6 @@ bool htab_add(htab_t *h, char *key)
     newhead->info.loc_index = 0;
     newhead->info.loc_name = NONE;
     newhead->info.parked = false;
-    newhead->info.leaving = false;
 
     // hash key and place item in appropriate bucket
     size_t bucket = htab_index(h, key);

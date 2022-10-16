@@ -29,16 +29,4 @@ typedef struct exit_lpr_args {
     int exit_idx;
 } exit_lpr_args_t;
 
-typedef struct entrance_args {
-    entrance_t *entrance;
-    htab_t *plates_info;
-    int entrance_idx;
-} entrance_args_t;
-
-typedef struct exit_args {
-    exit_t *exit;
-    htab_t *plates_info;
-    int exit_idx;
-} exit_args_t;
-
 #endif

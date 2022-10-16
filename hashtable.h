@@ -19,7 +19,6 @@ typedef struct car_info {
     location loc_name;
     int loc_index;
     bool parked;
-    bool leaving;
 } car_info_t;
 
 typedef struct item item_t;
