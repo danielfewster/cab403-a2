@@ -507,7 +507,6 @@ int main(void) {
         pthread_join(sim_temp_sensors[i], NULL);
     }
     
-    /*
     cv_destroy(&parked_cars);
 
     for (int i = 0; i < ENTRANCES; i++) {
@@ -515,7 +514,6 @@ int main(void) {
     }
 
     munmap(shm.data, SHM_SIZE);
-    */
-   
+
     return EXIT_SUCCESS;
 }

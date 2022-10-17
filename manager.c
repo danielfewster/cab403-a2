@@ -253,9 +253,10 @@ void *status_display(void *data) {
         for (int i = 0; i < LEVELS; i++) {
             level_t *l = &args->cp_data->levels[i];
             printf("Level #%d | ", i);
-            printf("Capacity: %d/%d | ", 
+            printf("Capacity: %2d/%2d | ", 
                 get_cars_in_level(args->plates_info, i), LEVEL_CAPACITY);
             printf("Temp Sensors: %d | ", l->temp_sensor);
+            printf("Alarm: %s | ", l->alarm ? "ON" : "OFF");
             printf("LPR: %s\n", l->lpr_sensor.license_plate);
         }
         printf("\n");
@@ -325,7 +326,7 @@ int main(void) {
 
     htab_t plates_info;
     if (!htab_init(&plates_info, buckets)) {
-        printf("Failed to init ht.\n");
+        printf("Failed to init plates_info.\n");
         return EXIT_FAILURE;
     }
 
@@ -423,9 +424,7 @@ int main(void) {
         pthread_join(close_exit_bg[i], NULL);
     }
     
-    /*
     htab_destroy(&plates_info);
-    */
 
     return EXIT_SUCCESS;
 }

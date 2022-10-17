@@ -19,7 +19,13 @@
 			"system_error": "c",
 			"functional": "c",
 			"tuple": "c",
-			"utility": "c"
+			"utility": "c",
+			"stdbool.h": "c",
+			"deque": "c",
+			"unordered_map": "c",
+			"vector": "c",
+			"initializer_list": "c",
+			"*.tcc": "c"
 		}
 	}
 }
