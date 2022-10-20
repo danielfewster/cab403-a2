@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "common.h"
+#include "core.h"
 
 static int alarm_active = 0;
 static pthread_mutex_t alarm_mutex;

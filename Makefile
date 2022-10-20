@@ -4,9 +4,10 @@ LDFLAGS = -lrt -lpthread
 
 all: simulator manager fire_alarm
 
-simulator.o manager.o fire_alarm.o: common.h
+simulator.o manager.o: common.h
 manager.o: manager.h
 simulator.o: simulator.h
+fire_alarm.o: core.h
 
 simulator: simulator.o
 manager: manager.o
