@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -10,11 +9,12 @@
 
 #include "common.h"
 
-int alarm_active = 0;
-pthread_mutex_t alarm_mutex;
-pthread_cond_t alarm_condvar;
+static int alarm_type = 0;
+static int alarm_active = 0;
+static pthread_mutex_t alarm_mutex;
+static pthread_cond_t alarm_condvar;
 
-int msleep(long msec)
+static int msleep(long msec)
 {
     struct timespec ts;
     int res;
@@ -35,7 +35,7 @@ int msleep(long msec)
     return res;
 }
 
-int get_shm_object(shared_memory_t *shm) {
+static int get_shm_object(shared_memory_t *shm) {
     if ((shm->fd = shm_open(SHM_KEY, O_RDWR, 0)) < 0) {
         shm->data = NULL;
         return 0;
@@ -47,11 +47,11 @@ int get_shm_object(shared_memory_t *shm) {
     return 1;
 }
 
-int asc_cmp(const int first, const int second) {
-    return first - second;
+static int compare(const void *first, const void *second) {
+	return *((const int *)first) - *((const int *)second);
 }
 
-void *level_temp_monitor(void *data) {
+static void *level_temp_monitor(void *data) {
     level_t *l = (level_t *)data;
 
     const int MIN_HIGH_TEMP = 58;
@@ -59,13 +59,17 @@ void *level_temp_monitor(void *data) {
     const int RAW_BUFF_SIZE = 5;
     const int SMOOTH_BUFF_SIZE = 30;
 
-    int raw_circ_buff[RAW_BUFF_SIZE];
     int raw_idx = 0;
     int raw_count = 0;
+    int raw_circ_buff[RAW_BUFF_SIZE];
+    for (int i = 0; i < RAW_BUFF_SIZE; i++)
+        raw_circ_buff[i] = 0;
 
-    int smooth_circ_buff[SMOOTH_BUFF_SIZE];
     int smooth_idx = 0;
     int smooth_count = 0;
+    int smooth_circ_buff[SMOOTH_BUFF_SIZE];
+    for (int i = 0; i < SMOOTH_BUFF_SIZE; i++)
+        smooth_circ_buff[i] = 0;
 
     while (1) {
         if (smooth_count >= SMOOTH_BUFF_SIZE) {
@@ -77,8 +81,9 @@ void *level_temp_monitor(void *data) {
             }
 
             // NOTE: Fixed Temperature
-            if (high_temp_count >= SMOOTH_BUFF_SIZE*0.9) {
+            if (high_temp_count >= (SMOOTH_BUFF_SIZE*0.9)) {
                 pthread_mutex_lock(&alarm_mutex);
+                alarm_type = 1;
                 alarm_active = 1;
                 pthread_cond_broadcast(&alarm_condvar);
                 pthread_mutex_unlock(&alarm_mutex);
@@ -86,9 +91,10 @@ void *level_temp_monitor(void *data) {
 
             // NOTE: Rate of Rise
             int oldest_temp = smooth_circ_buff[smooth_idx];
-            int newest_temp = smooth_circ_buff[(smooth_idx-1)%SMOOTH_BUFF_SIZE];
+            int newest_temp = smooth_circ_buff[((smooth_idx-1)+SMOOTH_BUFF_SIZE)%SMOOTH_BUFF_SIZE];
             if ((newest_temp - oldest_temp) >= MIN_ROR) {
                 pthread_mutex_lock(&alarm_mutex);
+                alarm_type = 2;
                 alarm_active = 1;
                 pthread_cond_broadcast(&alarm_condvar);
                 pthread_mutex_unlock(&alarm_mutex);
@@ -100,7 +106,7 @@ void *level_temp_monitor(void *data) {
             for (int i = 0; i < RAW_BUFF_SIZE; i++)
                 raw_temp_buff[i] = raw_circ_buff[i];
 
-            qsort(raw_temp_buff, RAW_BUFF_SIZE, sizeof(int), asc_cmp);
+            qsort(raw_temp_buff, RAW_BUFF_SIZE, sizeof(int), compare);
             smooth_circ_buff[smooth_idx++] = raw_temp_buff[(RAW_BUFF_SIZE/2)-1];
             smooth_idx %= SMOOTH_BUFF_SIZE;
             if (smooth_count < SMOOTH_BUFF_SIZE) smooth_count++;
@@ -112,20 +118,24 @@ void *level_temp_monitor(void *data) {
 
         msleep(2);
     }
+
+    return NULL;
 }
 
-void *open_bg(void *data) {
+static void *open_bg(void *data) {
     boom_gate_t *bg = (boom_gate_t *)data;
 
     pthread_mutex_lock(&bg->mutex);
     while (1) {
-		if (bg->status == 'C') {
-			bg->status = 'R';
+		if (bg->status == (char)'C') {
+			bg->status = (char)'R';
 			pthread_cond_broadcast(&bg->cond_var);
 		}
 		pthread_cond_wait(&bg->cond_var, &bg->mutex);
     }
     pthread_mutex_unlock(&bg->mutex);
+
+    return NULL;
 }
 
 int main(void) {
@@ -150,9 +160,17 @@ int main(void) {
         pthread_cond_wait(&alarm_condvar, &alarm_mutex);
     pthread_mutex_unlock(&alarm_mutex);
 
+    if (alarm_type == 1) {
+        printf("FIXED TEMP: DETECTED FIRE!\n");
+    } else if (alarm_type == 2) {
+        printf("RATE-OF-RISE: DETECTED FIRE!\n");
+    }
+
+    printf("ALARM ACTIVE!\n");
+
     // NOTE: Activate all alarms
     for (int i = 0; i < LEVELS; i++) {
-        shm.data->levels->alarm = 1;
+        shm.data->levels[i].alarm = 1;
     }
 
     // NOTE: Open all boom gates
@@ -176,9 +194,12 @@ int main(void) {
     while (1) {
         for (int i = 0; i < msg_size; i++) {
             char c = evac_msg[i];
-            for (int j = 0; j < ENTRANCES; i++) {
-                entrance_t *e = shm.data->entrances;
+            for (int j = 0; j < ENTRANCES; j++) {
+                entrance_t *e = &shm.data->entrances[j];
+                pthread_mutex_lock(&e->info_sign.mutex);
                 e->info_sign.display = c;
+                pthread_cond_broadcast(&e->info_sign.cond_var);
+                pthread_mutex_unlock(&e->info_sign.mutex);
             }
             msleep(20);
         }

@@ -20,7 +20,6 @@
 #include "p_queue.c"
 #include "car_vector.c"
 
-int entrance_queue_cap = 10;
 pthread_mutex_t rand_lock;
 
 bool create_shm_object(shared_memory_t *shm) {
@@ -73,6 +72,7 @@ void init_shm_data(shared_memory_t *shm) {
         pthread_cond_init(&l->lpr_sensor.cond_var, &cond_attr);
 
         l->alarm = 0;
+        l->temp_sensor = 24;
     }
 
     for (int i = 0; i < EXITS; i++) {
@@ -175,6 +175,8 @@ void *generate_cars(void *data) {
     generate_car_args_t *args;
     args = (generate_car_args_t *)data;
 
+    int entrance_queue_cap = 10;
+
     char *plates[100];
     load_plates(plates);
 
@@ -265,7 +267,7 @@ void *entering_car(void *data) {
                 unsigned long int curr_time = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
 
                 pthread_mutex_lock(&rand_lock);
-                front_car->parking_exp = curr_time + ((rand()%9900)+100);
+                front_car->parking_exp = curr_time + ((rand()%9901)+100);
                 pthread_mutex_unlock(&rand_lock);
 
                 printf("%s will park for %ld ms.\n", 
@@ -389,17 +391,16 @@ void *sim_exit_boom_gate(void *data) {
 }
 
 void *level_temp_sensors(void *data) {
-    level_t *l;
-    l = (level_t *)data;
+    level_t *l = (level_t *)data;
 
     while (1) {
         pthread_mutex_lock(&rand_lock);
         int sleep_time = (rand() % 5) + 1;
-        int new_temp = (rand() % 20) + 20;
-        if ((rand() % 10) == 0) new_temp += rand() % 60;
+        if ((rand() % 1000) == 0) {
+            l->temp_sensor += (rand() % 5) + 1;
+        }
         pthread_mutex_unlock(&rand_lock);
 
-        l->temp_sensor = new_temp;
         msleep(sleep_time);
     }
 }

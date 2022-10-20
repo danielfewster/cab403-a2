@@ -256,7 +256,7 @@ void *status_display(void *data) {
             printf("Capacity: %2d/%2d | ", 
                 get_cars_in_level(args->plates_info, i), LEVEL_CAPACITY);
             printf("Temp Sensors: %d | ", l->temp_sensor);
-            printf("Alarm: %s | ", l->alarm ? "ON" : "OFF");
+            printf("Alarm: %d | ", l->alarm);
             printf("LPR: %s\n", l->lpr_sensor.license_plate);
         }
         printf("\n");
