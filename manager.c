@@ -62,25 +62,14 @@ bool load_plates(htab_t *d) {
     return true;
 }
 
-int msleep(long msec)
+void msleep(long msec)
 {
     struct timespec ts;
-    int res;
-
-    if (msec < 0)
-    {
-        errno = EINVAL;
-        return -1;
-    }
 
     ts.tv_sec = msec / 1000;
     ts.tv_nsec = (msec % 1000) * 1000000;
 
-    do {
-        res = nanosleep(&ts, &ts);
-    } while (res && errno == EINTR);
-
-    return res;
+    nanosleep(&ts, &ts);
 }
 
 int get_cars_in_level(htab_t *h, int level_idx) {
