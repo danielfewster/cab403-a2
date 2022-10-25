@@ -10,7 +10,7 @@
 
 void item_print(item_t *i)
 {
-    printf("key=%s value=%d", i->key, i->value);
+    printf("key=%s", i->key);
 }
 
 // Initialise a new hash table with n buckets.
@@ -70,7 +70,7 @@ item_t *htab_find(htab_t *h, char *key)
 // pre: htab_find(h, key) == NULL
 // post: (return == false AND allocation of new item failed)
 //       OR (htab_find(h, key) != NULL)
-bool htab_add(htab_t *h, char *key, int value)
+bool htab_add(htab_t *h, char *key)
 {
     // allocate new item
     item_t *newhead = (item_t *)malloc(sizeof(item_t));
@@ -78,8 +78,13 @@ bool htab_add(htab_t *h, char *key, int value)
     {
         return false;
     }
+
     newhead->key = key;
-    newhead->value = value;
+    newhead->info.last_bill = 0;
+    newhead->info.last_time_entered = 0;
+    newhead->info.loc_index = 0;
+    newhead->info.loc_name = NONE;
+    newhead->info.parked = false;
 
     // hash key and place item in appropriate bucket
     size_t bucket = htab_index(h, key);
